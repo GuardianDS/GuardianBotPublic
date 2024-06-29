@@ -1,0 +1,9 @@
+Pastel Light Blue = #b3dfec
+Pastel Periwinkle = #b9c0ea
+Pastel Pink = #e8a5cc
+Pastel Red = #f282a7
+Pastel Orange = #f0725c
+Pastel Yellow = #f6ac5a
+Pastel Purple = #b28dff
+Pastel Green = #aff8db
+Pastel Blue = #6eb5ff
