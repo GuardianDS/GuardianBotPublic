@@ -18,3 +18,4 @@ After that you can start it with
 - https://discordjs.guide/creating-your-bot/#using-config-json
 - https://www.freecodecamp.org/news/create-a-discord-bot-with-python/
 - https://stackoverflow.com/questions/64294581/how-to-make-a-webhook-to-send-a-message-with-the-avatar-and-nickname-of-the-user
+- https://pypi.org/project/translate/
