@@ -20,7 +20,7 @@ from discord import Webhook
 import aiohttp
 
 from database import DatabaseManager
-from stats.membership_data import MembershipData
+
 
 from translate import Translator
 import requests
@@ -293,44 +293,11 @@ class GuardianBot(commands.Bot):
                 f"{os.path.realpath(os.path.dirname(__file__))}/database/database.db"
             )
         )
-        # https://stackoverflow.com/questions/74989101/discord-py-tasks-loop-sending-runtime-error-no-running-event-loop
-        #if MODE_COLOR_WAR:
-            #self.colorwar_scheduled_job.start()
-            #print("START")
-            #https://stackoverflow.com/questions/22715086/scheduling-python-script-to-run-every-hour-accurately
-            #self.scheduler = BlockingScheduler()
-            #self.scheduler.add_job(colorwar_scheduled_job, 'interval', minutes=15)
-            #self.scheduler.start()
-            #https://github.com/agronholm/apscheduler/blob/3.x/examples/schedulers/asyncio_.py
-            #self.scheduler = AsyncIOScheduler()
-            #https://stackoverflow.com/questions/61366148/python-discord-py-bot-interval-message-send
 
 # =======================================================
 # UTILITY
 # =======================================================
 
-    # See if we have the id cached => return the webhook
-    # otherwise lazy load it into the cache
-    async def get_channel_hook(self, message: discord.Message, session):
-        hook = None
-
-        if message.channel.id in HOOKS_CACHE:
-            hook = HOOKS_CACHE.get(message.channel.id)
-        else:
-            # see if a webhook exists
-            hooks = await message.channel.webhooks()
-            for wh in hooks:
-                if wh.name == "GuardianBot":
-                    hook = wh
-            # if one doesn't then create one
-            if hook == None:
-                hook = await message.channel.create_webhook(name="GuardianBot")
-            
-            # cache it for later use
-            HOOKS_CACHE[message.channel.id] = hook
-
-        webhook = Webhook.from_url(hook.url, session=session)
-        return webhook
 
     def get_role(self, role_id, guild):
         if role_id not in ROLES_CACHE:
@@ -358,13 +325,6 @@ class GuardianBot(commands.Bot):
         
         return 0
 
-    async def find_ticket(self, message: discord.Message, user: discord.User, ticket_type: int) -> discord.TextChannel:
-        for channel in message.guild.text_channels:
-            if channel.category_id == ticket_type:
-                async for message in channel.history(limit=100):
-                    if message.author.id == user.id:
-                        return channel
-
     async def ticket_collect(self, message: discord.Message, target_channel_id: int):
         target = await self.get_user_target(message)
         post = f"<@{target.id}> (ID: `{target.id}`)\nDisplay Name: `{target.display_name}`\nUser Name: `{target.name}`\n"
@@ -388,33 +348,7 @@ class GuardianBot(commands.Bot):
         if guid:
             await message.channel.send("Added successfully and will be in rotation after the current shuffle is exhausted.")
 
-# =======================================================
-# STATS
-# =======================================================
 
-    async def collect_membership_stats(self, guild: discord.Guild) -> dict:
-
-        role_count = {}
-        pos_bot = guild.get_role(ROLE_SEPERATOR_BOT).position
-        pos_mid = guild.get_role(ROLE_SEPERATOR_MID).position
-        pos_top = guild.get_role(ROLE_SEPERATOR_TOP).position
-        async for member in guild.fetch_members():
-            print(f'Member: {member.display_name}')
-            if member.get_role(ROLES_ID_DICT["member"]):
-                for role in member.roles:
-                    if role_count.get(role.id):
-                        role_count[role.id].member_count = role_count[role.id].member_count + 1
-                    else:
-                        category = ''
-                        if role.position > pos_bot and role.position < pos_mid:
-                            category = "Kinks"
-                        elif role.position > pos_mid and role.position < pos_top:
-                            category = "Demographic"
-                        elif role.position > pos_top and (("Member" in role.name) or ("Prestige" in role.name)):
-                            category = "Membership"
-                        role_count[role.id] = MembershipData(category, role.id, role.name, role.color.value, 1, datetime.now())
-
-        return role_count
 
 # =======================================================
 # DISCORD API EVENTS
@@ -439,66 +373,7 @@ class GuardianBot(commands.Bot):
                 MY_GUILD = discord.Object(id=SERVER_ID)
                 self.tree.copy_global_to(guild=MY_GUILD)
                 await self.tree.sync(guild=MY_GUILD)
-                #await self.sync(guild=MY_GUILD)
                 return
-            #if message.content.lower().startswith("g! cw"):
-                #if ROLES_ID_DICT["admin"] in user_roles_ids:
-                    # if message.content.lower().startswith("g! cw init"):
-                    #     await message.channel.send("init")
-                    # if message.content.lower().startswith("g! cw dump teams"):
-                    #     await self.export_teams(message.guild)
-                    # if message.content.lower().startswith("g! cw refresh"):
-                    #     await self.refresh_colorwar_stats()
-                    #if message.content.lower().startswith("g! cw seed"):
-                    #    await self.seed_colorwar(message.guild)
-                    # if message.content.lower().startswith("g! cw clear"):
-                    #     roles = []
-                    #     for role in COLORWAR_TEAMS:
-                    #         roles.append(message.guild.get_role(role))
-                    #     for role in COLORWAR_PAINTS:
-                    #         roles.append(message.guild.get_role(role))
-                    #     async for member in message.channel.guild.fetch_members():
-                    #         for role in roles:
-                    #             await member.remove_roles(role)
-                #if ROLES_ID_DICT["moderator"] in user_roles_ids:
-                    # if message.content.lower().startswith("g! cw set shield"):
-                    #     if "<@" in message.content:
-                    #         # get target user
-                    #         target_uid = int(message.content[message.content.index("<@") + 2:message.content.index(">")])
-                    #         user = message.channel.guild.get_member(target_uid)
-                    #         count = int(message.content[message.content.index(">") + 1:].strip())
-                    #         if count > 5:
-                    #             count = 5
-                    #         await self.database.set_shields(user, count)
-                    # elif message.content.lower().startswith("g! cw set grenade"):
-                    #     if "<@" in message.content:
-                    #         # get target user
-                    #         target_uid = int(message.content[message.content.index("<@") + 2:message.content.index(">")])
-                    #         user = message.channel.guild.get_member(target_uid)
-                    #         count = int(message.content[message.content.index(">") + 1:].strip())
-                    #         if count > 5:
-                    #             count = 5
-                    #         await self.database.set_grenades(user, count)
-                    # if message.content.lower().startswith("g! cw spawn item shield"):
-                    #     count = int(message.content.replace("g! cw spawn item shield", "").strip())
-                    #     post = "🎈🎈\n📦\nA color war supply box has spawned! React with 🫳 to grab it."
-                    #     channel = CHANNEL_GEN_CHAT # (temp mod chat - 1210574473619709983)
-                    #     #if "<#" in message.content:
-                    #     #    channel = int(message.content[message.content.index("<#") + 2:message.content.index(">")])
-                    #     spawn_msg = await message.guild.get_channel(channel).send(post)
-                    #     await self.database.create_spawn(spawn_msg, "SHIELD", count)
-                    # elif message.content.lower().startswith("g! cw spawn item grenade"):
-                    #     count = int(message.content.replace("g! cw spawn item grenade", "").strip())
-                    #     post = "🎈🎈\n📦\nA color war supply box has spawned! React with 🫳 to grab it."
-                    #     channel = CHANNEL_GEN_CHAT
-                    #     spawn_msg = await message.guild.get_channel(channel).send(post)
-                    #     await self.database.create_spawn(spawn_msg, "GRENADE", count)
-
-            # if message.content.lower().startswith("g! test"):
-            #     await message.channel.send("/top type:Text page:1")
-            #     async with aiohttp.ClientSession() as session:
-            #         webhook = await self.get_channel_hook(message, session)
-            #         await webhook.send("Test", ephemeral=True)
             if message.content.lower().startswith("g! help"):
                 help_message = HELP_MSG
                 if ROLES_ID_DICT["paintbucket"] in user_roles_ids:
@@ -511,42 +386,6 @@ class GuardianBot(commands.Bot):
                 for role in message.channel.guild.roles:
                     f.write(f"{role.position} - {role.name}\n")
                 f.close()
-            # elif message.content.lower().startswith("g! gag") and ((ROLES_ID_DICT["moderator"] in user_roles_ids) or (ROLES_ID_DICT["booster"] in user_roles_ids)):
-            #     if "<@" in message.content:
-            #             # get target user
-            #             target_uid = int(message.content[message.content.index("<@") + 2:message.content.index(">")])
-            #             user = message.channel.guild.get_member(target_uid)
-            #             # check to make sure they're not a Dom
-            #             #if user.get_role(ROLE_DOM) == None:
-            #             # make sure it's not me :D
-            #             if target_uid != UID_GUARDIAN:
-            #                 gagged = message.channel.guild.get_role(ROLE_GAGGED)
-            #                 await user.add_roles(gagged)
-            # elif message.content.lower().startswith("g! ungag") and ((ROLES_ID_DICT["moderator"] in user_roles_ids) or (ROLES_ID_DICT["booster"] in user_roles_ids)):
-            #         if "<@" in message.content:
-            #             # get target user
-            #             target_uid = int(message.content[message.content.index("<@") + 2:message.content.index(">")])
-            #             user = message.channel.guild.get_member(target_uid)
-            #             if user.get_role(ROLE_GAGGED) != None:
-            #                 gagged = message.channel.guild.get_role(ROLE_GAGGED)
-            #                 await user.remove_roles(gagged)
-            # elif message.content.lower().startswith("g! heel") and ((ROLES_ID_DICT["moderator"] in user_roles_ids) or (ROLES_ID_DICT["booster"] in user_roles_ids)):
-            #         if "<@" in message.content:
-            #             # get target user
-            #             target_uid = int(message.content[message.content.index("<@") + 2:message.content.index(">")])
-            #             user = message.channel.guild.get_member(target_uid)
-            #             # check to make sure they're not a Dom
-            #             if (target_uid != UID_GUARDIAN) and (user.get_role(ROLE_DOM) == None and user.get_role(ROLE_PET_PLAY) != None):
-            #                 heel = message.channel.guild.get_role(ROLE_HEEL)
-            #                 await user.add_roles(heel)
-            # elif message.content.lower().startswith("g! good") and ((ROLES_ID_DICT["moderator"] in user_roles_ids) or (ROLES_ID_DICT["booster"] in user_roles_ids)):
-            #     if "<@" in message.content:
-            #         # get target user
-            #         target_uid = int(message.content[message.content.index("<@") + 2:message.content.index(">")])
-            #         user = message.channel.guild.get_member(target_uid)
-            #         if user.get_role(ROLE_HEEL) != None:
-            #             heel = message.channel.guild.get_role(ROLE_HEEL)
-            #             await user.remove_roles(heel)
             elif message.content.lower().startswith("g! dye") and (ROLES_ID_DICT["paintbucket"] in user_roles_ids):
                 target = await self.get_user_target(message)
                 if target:
@@ -564,21 +403,6 @@ class GuardianBot(commands.Bot):
                     print(f"Adding: {seed_target} | {line}")
                     await self.database.add_question(BOT_ID, seed_target, line)
                 f.close()
-            # elif message.content.lower().startswith("g! approve") and (ROLES_ID_DICT["moderator"] in user_roles_ids):
-            #     await self.ticket_collect(message, APPROVAL_CHANNEL_ID)
-            #     return
-            # elif message.content.lower().startswith("g! reject") and (ROLES_ID_DICT["moderator"] in user_roles_ids):
-            #     await self.ticket_collect(message, REJECTION_CHANNEL_ID)
-            #     return
-            # elif message.content.lower().startswith("g! shame") and (ROLES_ID_DICT["moderator"] in user_roles_ids):
-            #     await self.ticket_collect(message, WALL_OF_SHAME_CHANNEL_ID)
-            #     return
-            # elif message.content.lower().startswith("g! icebreaker"):
-            #     await self.get_next_question(message, "icebreakers", ICEBREAKER_CHANNEL_ID, "ICEBREAKER")
-            # elif message.content.lower().startswith("g! truth"):
-            #     await self.get_next_question(message, "truths", T_OR_D_CHANNEL_ID, "TRUTH")
-            # elif message.content.lower().startswith("g! dare"):
-            #     await self.get_next_question(message, "dares", T_OR_D_CHANNEL_ID, "DARE")
             elif message.content.lower().startswith("g! add") and self.get_user_prestige(message.author) > QUESTION_ADD_PRESTIGE_REQ:
                 if message.content.lower().startswith("g! add icebreaker"):
                     await self.add_question(message, "icebreakers")
@@ -586,234 +410,11 @@ class GuardianBot(commands.Bot):
                     await self.add_question(message, "truths")
                 elif message.content.lower().startswith("g! add dare"):
                     await self.add_question(message, "dares")
-            # elif message.content.lower().startswith("g! jigsaw") and (ROLES_ID_DICT["moderator"] in user_roles_ids):
-            #     if "<@" in message.content:
-            #         # get target user
-            #         target_uid = int(message.content[message.content.index("<@") + 2:message.content.index(">")])
-            #         user = message.channel.guild.get_member(target_uid)
-            #         if target_uid != UID_GUARDIAN:
-            #             jigsaw = message.channel.guild.get_role(ROLE_JIGSAW)
-            #             await user.add_roles(jigsaw)
-            #         password = message.content[message.content.index(">") + 2:].strip()
-            #         if len(password) > 0:
-            #             JIGSAW_PASSWORD = password
-            #             author = message.author.display_name
-            #             self.logger.info(f"[JIGSAW] {author}: Updated password to \"{password}\"")
-            # elif message.content.lower().startswith("g! free") and (ROLES_ID_DICT["moderator"] in user_roles_ids):
-            #     if "<@" in message.content:
-            #         # get target user
-            #         target_uid = int(message.content[message.content.index("<@") + 2:message.content.index(">")])
-            #         user = message.channel.guild.get_member(target_uid)
-            #         if user.get_role(ROLE_JIGSAW) != None:
-            #             jigsaw = message.channel.guild.get_role(ROLE_JIGSAW)
-            #             await user.remove_roles(jigsaw)
-            # elif message.content.lower().startswith("g! changepw") and (ROLES_ID_DICT["moderator"] in user_roles_ids):
-            #     password = message.content.replace("g! changepw", "").strip()
-            #     if len(password) > 0:
-            #         JIGSAW_PASSWORD = password
-            #         author = message.author.display_name
-            #         self.logger.info(f"[JIGSAW] {author}: Updated password to \"{password}\"")
-            elif message.content.lower().startswith("g! collect stats") and (ROLES_ID_DICT["moderator"] in user_roles_ids):
-                stats = await self.collect_membership_stats(message.guild)
-                pos_bot = message.guild.get_role(ROLE_SEPERATOR_BOT).position
-                pos_mid = message.guild.get_role(ROLE_SEPERATOR_MID).position
-                pos_top = message.guild.get_role(ROLE_SEPERATOR_TOP).position
-                kink_roles = []
-                info_roles = []
-                member_roles = []
-                print("Processing Roles....")
-                print(f"Positions: {pos_bot} - {pos_mid} - {pos_top}")
-                for key,val in stats.items():
-                    role = message.guild.get_role(key)
-                    print(f"{role.position} - {role.name} - {val.member_count}")
-                    await self.database.add_membership_stat(val.category, val.role_id, val.name, val.color, val.member_count)
-                    # kinks
-                    if role.position > pos_bot and role.position < pos_mid:
-                        #kink_roles.insert(role.position - pos_bot - 1, [role, val])
-                        kink_roles.append([role, val.member_count])
-                    elif role.position > pos_mid and role.position < pos_top:
-                        #info_roles.insert(role.position - pos_bot - 1, [role, val])
-                        info_roles.append([role, val.member_count])
-                    elif role.position > pos_top and (("Member" in role.name) or ("Prestige" in role.name)):
-                        member_roles.append([role, val.member_count])
-                # sort
-                #kink_roles.sort(key=lambda x: x[0].position, reverse=True)
-                kink_roles.sort(key=lambda x: x[1], reverse=True)
-                info_roles.sort(key=lambda x: x[0].position, reverse=True)
-
-                # dump stats
-                msg = ""
-                f = open("stats.txt", "w")
-                f.write("Member Roles\n")
-                msg += "Member Roles\n"
-                f.write("=================================================\n")
-                msg += "=================================================\n"
-                for item in member_roles:
-                    msg += f"{item[0].name}: {item[1]}\n"
-                    f.write(f"{item[0].name}: {item[1]}\n")
-                f.write("Info Roles\n")
-                msg += "Info Roles\n"
-                f.write("=================================================\n")
-                msg += "=================================================\n"
-                for item in info_roles:
-                    msg += f"{item[0].name}: {item[1]}\n"
-                    f.write(f"{item[0].name}: {item[1]}\n")
-                f.write("=================================================\n")
-                msg += "=================================================\n"
-                f.write("Kink Roles\n")
-                msg += "Kink Roles\n"
-                f.write("=================================================\n")
-                msg += "=================================================\n"
-                for item in kink_roles:
-                    msg += f"{item[0].name}: {item[1]}\n"
-                    f.write(f"{item[0].name}: {item[1]}\n")
-                f.close()
-                await message.channel.send("Collection Complete - Check Server Files")
+            #elif message.content.lower().startswith("g! collect stats") and (ROLES_ID_DICT["moderator"] in user_roles_ids):
+                
         
             await self.process_commands(message)
-
-        # Events
-        # if (ROLES_ID_DICT["gagged"] in user_roles_ids) and message.author.id != UID_GUARDIAN:
-        #     gagged_msg = ""
-        #     author = message.author.display_name
-        #     avatar = message.author.display_avatar.url
-        #     self.logger.info(f"[Gagged] {author}: {message.content}")
-        #     for word in message.content.split(" "):
-        #         if "<@" in word or word.startswith(":"):
-        #             gagged_msg += word
-        #         else:
-        #             if random.random() > 0.2:
-        #                 gagged_msg += random.choice(GAG_LIST)
-        #                 if word.endswith("!"):
-        #                     gagged_msg += "!"
-        #                 if word.endswith("."):
-        #                     gagged_msg += "."
-        #             else:
-        #                 gagged_msg += word
-                    
-        #         gagged_msg += " "
-        #     async with aiohttp.ClientSession() as session:
-        #         webhook = await self.get_channel_hook(message, session)
-        #         await message.delete()
-        #         await webhook.send(content=gagged_msg, username=author, avatar_url=avatar)
-        # elif (ROLES_ID_DICT["heel"] in user_roles_ids) and message.author.id != UID_GUARDIAN:
-        #     heel_msg = ""
-        #     author = message.author.display_name
-        #     avatar = message.author.display_avatar.url
-        #     self.logger.info(f"[Heel] {author}: {message.content}")
-        #     for word in message.content.split(" "):
-        #         if "<@" in word or word.startswith(":"):
-        #             heel_msg += word
-        #         else:
-        #             if random.random() > 0.2:
-        #                 heel_msg += random.choice(PET_LIST)
-        #                 if word.endswith("!"):
-        #                     heel_msg += "!"
-        #                 if word.endswith("."):
-        #                     heel_msg += "."
-        #             else:
-        #                 heel_msg += word
-                    
-        #         heel_msg += " "
-            
-        #     async with aiohttp.ClientSession() as session:
-        #         webhook = await self.get_channel_hook(message, session)
-        #         await message.delete()
-        #         await webhook.send(content=heel_msg, username=author, avatar_url=avatar)
-        # elif (ROLE_JIGSAW in user_roles_ids) and message.author.id != UID_GUARDIAN:
-        #     if message.channel.id != CHANNEL_JIGSAW:
-        #         author = message.author.display_name
-        #         avatar = message.author.display_avatar.url
-        #         self.logger.info(f"[JIGSAW] {author}: {message.content}")
-        #         jigsaw_msg = f"I wanted to play games. Now I have to guess the magic words in <#{CHANNEL_JIGSAW}> to talk again."
-        #         async with aiohttp.ClientSession() as session:
-        #             webhook = await self.get_channel_hook(message, session)
-        #             await message.delete()
-        #             await webhook.send(content=jigsaw_msg, username=author, avatar_url=avatar)
-        #     elif message.content.lower().replace(",", "").replace("!","").replace(".", "") == JIGSAW_PASSWORD.lower().replace(",", "").replace("!","").replace(".", ""):
-        #         jigsaw = message.channel.guild.get_role(ROLE_JIGSAW)
-        #         await user.remove_roles(jigsaw)
-        # elif ((ROLE_NAUGHTY_MOD in user_roles_ids) #or message.author.id == 1066107260272640121)
-        #         and message.author.id != UID_GUARDIAN
-        #         and message.channel.category_id != CAT_ADMIN 
-        #         and message.channel.category_id != CAT_WELCOME 
-        #         and message.channel.category_id != CAT_TICKET_APP
-        #         and message.channel.category_id != CAT_TICKET_REP
-        #         and message.channel.category_id != CAT_TICKET_ADM):
-        #     author = message.author.display_name
-        #     avatar = message.author.display_avatar.url
-        #     self.logger.info(f"[NAUGHTY] {author}: {message.content}")
-        #     naughty_msg = random.choice(NAUGHTY_MOD_LIST)
-        #     async with aiohttp.ClientSession() as session:
-        #         webhook = await self.get_channel_hook(message, session)
-        #         await message.delete()
-        #         await webhook.send(content=naughty_msg, username=author, avatar_url=avatar)
-
-    #async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
-    # channel_id
-    # emoji
-    # event_type
-    # guild_id
-    # member
-    # message_id
-    # user_id
-    #async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        
-
-        # if payload.emoji.id == EMOJI_NUT_BUTTON:
-        #     message = await bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
-        #     # make sure this isn't in places people can't see or for non-members
-        #     if (    message.author.id != payload.user_id
-        #         and message.channel.category_id != CAT_ADMIN 
-        #         and message.channel.category_id != CAT_WELCOME 
-        #         and message.channel.category_id != CAT_TICKET_APP
-        #         and message.channel.category_id != CAT_TICKET_REP
-        #         and message.channel.category_id != CAT_TICKET_ADM):
-        #             await message.clear_reaction(payload.emoji)
-        #             self.logger.info(f"[REACT] {payload.emoji.name} ({payload.emoji.id}) used on {message.id} by {payload.member.display_name}")
-        #             content_type = "text"
-        #             if message.attachments:
-        #                 msg_content = message.attachments[0].content_type
-        #                 content_type = msg_content[:msg_content.index("/")]
-        #             if message.embeds and message.embeds[0].url:
-        #                 content_type = "link"
-                    
-        #             add_success = await self.database.add_nut(payload.user_id, payload.guild_id, payload.channel_id, payload.message_id, message.author.id, content_type)
-        #             if add_success:
-        #                 nut_channel = payload.member.guild.get_channel(CHANNEL_NUT)
-        #                 nut_count_author = await self.database.get_nut_count_author(message.author.id)
-        #                 #nut_count_author = nut_count_author.replace("(", "").replace(")", "").replace(",", "")
-        #                 nut_count_content = await self.database.get_nut_count_message(payload.guild_id, payload.channel_id, payload.message_id)
-        #                 #nut_count_content = nut_count_content.replace("(", "").replace(")", "").replace(",", "")
-        #                 #post = f"Someone Just NUTTED to {message.jump_url}!\n<@{message.author.id}>'s Content Nut Count: `{nut_count_author[0]}`\nThis Message's Nut Count: `{nut_count_content[0]}`\nContent Type: `{content_type}`"
-        #                 post = f"Someone Just NUTTED to {message.jump_url}!\n{message.author.display_name}'s ({message.author.name}) Content Nut Count: `{nut_count_author[0]}`\nThis Message's Nut Count: `{nut_count_content[0]}`\nContent Type: `{content_type}`"
-        #                 await nut_channel.send(post, suppress_embeds=True)
-        #else:
-            #print(f"EMOJI: {payload.emoji.name}")
-        # message = await bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
-        # if message.author.id is not BOT_ID:
-        #     if payload.emoji.name == '🇯🇵':
                 
-        #         r = requests.post(f"http://localhost:5000/detect?q={message.content}")
-        #         r_det = r.json()
-        #         print(r_det)
-        #         lang = r_det[0]['language']
-        #         r = requests.post(f"http://localhost:5000/translate?q={message.content}&source={lang}&target=ja")
-        #         r_trans = r.json()
-        #         print(r_trans)
-        #         await message.channel.send(f"{message.jump_url}\n🔎**Translation**\nDetected Language: {lang} (Confidence: {r_det[0]['confidence']})\n```{r_trans['translatedText']}```")
-        #     elif payload.emoji.name == '🔍' or payload.emoji.name =='🔎':
-        #         #translator = Translator(to_lang="en")
-        #         #message = await bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
-        #         r = requests.post(f"http://localhost:5000/detect?q={message.content}")
-        #         r_det = r.json()
-        #         print(r_det)
-        #         lang = r_det[0]['language']
-        #         r = requests.post(f"http://localhost:5000/translate?q={message.content}&source={lang}&target=en")
-        #         r_trans = r.json()
-        #         print(r_trans)
-        #         #translation = translator.translate(message.content)
-        #         await message.channel.send(f"{message.jump_url}\n🔎**Translation**\nDetected Language: {lang} (Confidence: {r_det[0]['confidence']})\n```{r_trans['translatedText']}```")
 
                 
 

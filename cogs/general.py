@@ -64,7 +64,8 @@ class General(commands.Cog, name="general"):
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
-        if message.author.id is not gw_constants.BOT_ID:
+        #if message.author.id is not gw_constants.BOT_ID:
+        if not message.author.bot:
             if payload.emoji.name == '🇯🇵':
                 
                 r = requests.post(f"http://localhost:5000/detect?q={message.content}")

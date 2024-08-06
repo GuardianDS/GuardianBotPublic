@@ -1,3 +1,5 @@
+import os
+
 SERVER_ID = os.getenv("SERVER_ID")
 UID_GUARDIAN = os.getenv("UID_GUARDIAN")
 BOT_ID = os.getenv("BOT_ID")

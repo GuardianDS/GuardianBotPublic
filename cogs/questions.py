@@ -66,5 +66,14 @@ class Questions(commands.Cog, name="questions"):
     #     if guid:
     #         await context.channel.send("Added successfully and will be in rotation after the current shuffle is exhausted.")
 
+    async def get_user_prestige(self, user: discord.Member) -> int:
+        roles = user.roles
+        for role in roles:
+            if "prestige" in role.name.lower():
+                num = role.name.lower().replace("prestige", "").strip()
+                return int(num)
+        
+        return 0
+
 async def setup(bot) -> None:
     await bot.add_cog(Questions(bot))
